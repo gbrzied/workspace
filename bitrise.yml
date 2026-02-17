@@ -1,0 +1,117 @@
+---
+format_version: "11"
+default_step_lib_source: "https://github.com/bitrise-io/bitrise-steplib.git"
+
+app:
+  env_vars:
+  - FLUTTER_VERSION: "3.24.0"
+  - CARTHAGE_VERSION: "0.39.0"
+
+trigger_map:
+- push_branch: main
+  workflow: primary
+- pull_request_source_branch: "*"
+  workflow: primary
+
+workflows:
+  primary:
+    description: |
+      Primary workflow - builds both iOS simulator and Android APK
+    steps:
+    - flutter-installer@1:
+        inputs:
+        - version: "$FLUTTER_VERSION"
+        - is_update_flutter: "false"
+    - flutter-analyze@1:
+        inputs:
+        - project_location: "$PROJECT_LOCATION"
+    - flutter-build@0:
+        inputs:
+        - project_location: "$PROJECT_LOCATION"
+        - platform: "android"
+        - output_name: "app-release.apk"
+    - xcode-build@4:
+        inputs:
+        - project_path: "$PROJECT_LOCATION/ios/Runner.xcworkspace"
+        - scheme: "Runner"
+        - simulator_destination: "platform=iOS Simulator,name=iPhone 14"
+        - configuration: Debug
+        - xcodebuild_build_args: "CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO"
+    - xcode-archive@4:
+        inputs:
+        - project_path: "$PROJECT_LOCATION/ios/Runner.xcworkspace"
+        - scheme: "Runner"
+        - distribution_method: "ad-hoc"
+        - xcodebuild_build_args: "CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO"
+
+  ios-simulation:
+    description: |
+      iOS Simulator build only
+    steps:
+    - flutter-installer@1:
+        inputs:
+        - version: "$FLUTTER_VERSION"
+    - flutter-analyze@1:
+        inputs:
+        - project_location: "$PROJECT_LOCATION"
+    - xcode-build@4:
+        inputs:
+        - project_path: "$PROJECT_LOCATION/ios/Runner.xcworkspace"
+        - scheme: "Runner"
+        - simulator_destination: "platform=iOS Simulator,name=iPhone 14"
+        - configuration: Debug
+        - xcodebuild_build_args: "CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO"
+
+  ios-release:
+    description: |
+      iOS release build for App Store
+    steps:
+    - flutter-installer@1:
+        inputs:
+        - version: "$FLUTTER_VERSION"
+    - flutter-analyze@1:
+        inputs:
+        - project_location: "$PROJECT_LOCATION"
+    - xcode-archive@4:
+        inputs:
+        - project_path: "$PROJECT_LOCATION/ios/Runner.xcworkspace"
+        - scheme: "Runner"
+        - distribution_method: "app-store"
+        - apple_api_key_id: "$APPLE_API_KEY_ID"
+        - apple_api_key_path: "$APPLE_API_KEY_PATH"
+        - apple_api_issuer: "$APPLE_API_ISSUER"
+
+  android-release:
+    description: |
+      Android release build
+    steps:
+    - flutter-installer@1:
+        inputs:
+        - version: "$FLUTTER_VERSION"
+    - flutter-analyze@1:
+        inputs:
+        - project_location: "$PROJECT_LOCATION"
+    - flutter-build@0:
+        inputs:
+        - project_location: "$PROJECT_LOCATION"
+        - platform: "android"
+        - mode: "release"
+        - output_name: "app-release.apk"
+
+  beta:
+    description: |
+      Beta build with Firebase App Distribution
+    steps:
+    - flutter-installer@1:
+        inputs:
+        - version: "$FLUTTER_VERSION"
+    - flutter-build@0:
+        inputs:
+        - project_location: "$PROJECT_LOCATION"
+        - platform: "android"
+        - output_name: "app-beta.apk"
+    - xcode-archive@4:
+        inputs:
+        - project_path: "$PROJECT_LOCATION/ios/Runner.xcworkspace"
+        - scheme: "Runner"
+        - distribution_method: "ad-hoc"
